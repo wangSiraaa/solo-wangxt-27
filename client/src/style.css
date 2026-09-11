@@ -1,0 +1,37 @@
+:root { font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; color: #1f2933; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #f4f6f8; }
+#app { max-width: 1280px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 20px; margin: 8px 0 16px; }
+h2 { font-size: 15px; margin: 0 0 10px; color: #334e68; }
+.panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #edf2f7; }
+th { color: #627d98; font-weight: 600; }
+tr.selected td { background: #e6f4ea; }
+tr { cursor: pointer; }
+button { background: #2f855a; color: #fff; border: 0; border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; margin-right: 6px; }
+button.ghost { background: #fff; color: #2f855a; border: 1px solid #2f855a; }
+button.warn { background: #c05621; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+input, select { padding: 5px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; margin: 2px 4px 2px 0; }
+label { font-size: 12px; color: #627d98; display: block; margin-top: 6px; }
+.row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 10px; }
+.msg { font-size: 13px; padding: 8px 10px; border-radius: 6px; margin: 8px 0; }
+.msg.ok { background: #e6f4ea; color: #276749; }
+.msg.err { background: #fde8e8; color: #c53030; }
+.badge { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 10px; background: #edf2f7; color: #4a5568; }
+.badge.ORIGINAL { background: #ebf5ff; color: #2b6cb0; }
+.badge.MIXTURE { background: #faf5ff; color: #805ad5; }
+.badge.ALIQUOT { background: #fffaf0; color: #c05621; }
+.below-dl { color: #c53030; }
+.mono { font-family: ui-monospace, monospace; }
+.tree ul { list-style: none; padding-left: 22px; border-left: 1px dashed #cbd5e0; margin: 4px 0; }
+.node { display: inline-block; border: 1px solid #cbd5e0; border-radius: 8px; padding: 8px 10px; margin: 4px 0; background: #fff; min-width: 220px; }
+.node.root { border-color: #2f855a; box-shadow: 0 0 0 2px #c6f6d5; }
+.node .mass { font-weight: 700; color: #276749; }
+.edge-label { font-size: 11px; color: #805ad5; margin-left: 4px; }
+.tests { font-size: 12px; color: #4a5568; margin-top: 4px; }
+.tests span { margin-right: 8px; }
+.small { font-size: 12px; color: #718096; }
