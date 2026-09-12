@@ -145,12 +145,16 @@
     <h2>谱系图 — 剩余量 / 容器 / 检测记录</h2>
     <LineageNode v-if="rootNode" :node="rootNode" :nodes="lineage.nodes" :edges="lineage.edges" :rootId="lineage.root" />
   </div>
+
+  <!-- 污染事件与复测 -->
+  <IncidentPanel :samples="samples" @changed="refresh" />
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import { api, idemKey } from './api';
 import LineageNode from './components/LineageNode.vue';
+import IncidentPanel from './components/IncidentPanel.vue';
 
 const massUnits = ['g', 'kg', 'mg', 'ug'];
 const concUnits = ['mg/kg', 'ug/kg', 'g/kg', '%', 'mg/L', 'ug/L', 'g/L', 'ng/mL'];

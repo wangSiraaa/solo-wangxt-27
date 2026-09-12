@@ -26,6 +26,8 @@ function mockFetch() {
     const u = String(url);
     let body;
     if (u === '/api/containers') body = [];
+    else if (u === '/api/tools') body = [];
+    else if (u === '/api/incidents') body = [];
     else if (u === '/api/samples') body = samples;
     else if (u.includes('/tests/summary')) body = SUMMARY;
     else if (u.endsWith('/reconcile')) body = RECONCILE;

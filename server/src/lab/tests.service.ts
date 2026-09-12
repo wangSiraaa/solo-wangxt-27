@@ -25,6 +25,7 @@ export class TestsService {
     dilutionFactor?: string;
     belowDl?: boolean;
     method?: string;
+    amendsId?: string; // 修订关联：本结果取代的旧报告记录
   }) {
     req(dto.analyte && dto.rawValue && dto.unit && dto.detectionLimit,
       'analyte/rawValue/unit/detectionLimit 必填');
@@ -37,15 +38,23 @@ export class TestsService {
     const corrected = concToMgPerKg(raw.times(dilution), dto.unit);
 
     const id = randomUUID();
-    await this.db.query(
-      `INSERT INTO test_records
-         (id, sample_id, analyte, raw_value, raw_unit, detection_limit, dilution_factor, below_dl, corrected_mg_per_kg, method)
-       VALUES ($1,$2,$3,$4::numeric,$5,$6::numeric,$7::numeric,$8,$9::numeric,$10)`,
-      [id, sampleId, dto.analyte, raw.toString(), dto.unit, dl.toString(),
-       dilution.toString(), belowDl, corrected.toString(), dto.method ?? null],
-    );
-    const rows = await this.db.query('SELECT * FROM test_records WHERE id = $1', [id]);
-    return this.view(rows[0]);
+    return this.db.transaction(async (q) => {
+      if (dto.amendsId) {
+        // 修订而非覆盖：旧记录置 SUPERSEDED 并保留，新记录通过 amends_id 关联
+        const old = await q('SELECT id FROM test_records WHERE id = $1', [dto.amendsId]);
+        if (!old.length) throw new BadRequestException(`被修订的检测记录不存在: ${dto.amendsId}`);
+        await q(`UPDATE test_records SET status = 'SUPERSEDED' WHERE id = $1`, [dto.amendsId]);
+      }
+      await q(
+        `INSERT INTO test_records
+           (id, sample_id, analyte, raw_value, raw_unit, detection_limit, dilution_factor, below_dl, corrected_mg_per_kg, method, amends_id)
+         VALUES ($1,$2,$3,$4::numeric,$5,$6::numeric,$7::numeric,$8,$9::numeric,$10,$11)`,
+        [id, sampleId, dto.analyte, raw.toString(), dto.unit, dl.toString(),
+         dilution.toString(), belowDl, corrected.toString(), dto.method ?? null, dto.amendsId ?? null],
+      );
+      const rows = await q('SELECT * FROM test_records WHERE id = $1', [id]);
+      return this.view(rows[0]);
+    });
   }
 
   async listForSample(sampleId: string) {
@@ -62,7 +71,7 @@ export class TestsService {
   async summary(sampleId: string, analyte: string) {
     const rows = await this.db.query(
       `SELECT below_dl, corrected_mg_per_kg FROM test_records
-        WHERE sample_id = $1 AND analyte = $2 ORDER BY created_at`,
+        WHERE sample_id = $1 AND analyte = $2 AND status = 'ACTIVE' ORDER BY created_at`,
       [sampleId, analyte],
     );
     const detects = rows.filter((r) => !r.below_dl).map((r) => D(r.corrected_mg_per_kg));
@@ -92,6 +101,8 @@ export class TestsService {
       belowDl: r.below_dl,
       correctedMgPerKg: r.corrected_mg_per_kg,
       method: r.method,
+      status: r.status,
+      amendsId: r.amends_id,
       createdAt: r.created_at,
     };
   }

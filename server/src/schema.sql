@@ -80,3 +80,110 @@ CREATE INDEX IF NOT EXISTS idx_ledger_sample ON material_ledger(sample_id);
 CREATE INDEX IF NOT EXISTS idx_tests_sample  ON test_records(sample_id);
 CREATE INDEX IF NOT EXISTS idx_parents_child ON sample_parents(child_id);
 CREATE INDEX IF NOT EXISTS idx_parents_parent ON sample_parents(parent_id);
+
+-- ===== 污染事件与复测 =====
+CREATE TABLE IF NOT EXISTS tools (
+  id     text PRIMARY KEY,
+  code   text UNIQUE NOT NULL,
+  note   text
+);
+
+-- 工具接触记录：某工具在某时刻接触了某样品（可关联具体操作）
+CREATE TABLE IF NOT EXISTS tool_contacts (
+  id           text PRIMARY KEY,
+  tool_id      text NOT NULL REFERENCES tools(id),
+  sample_id    text NOT NULL REFERENCES samples(id),
+  operation_id text,
+  contact_at   timestamptz NOT NULL,
+  note         text
+);
+
+-- 污染事件：某工具在时间窗口内存在污染风险；窗口可随证据修订
+CREATE TABLE IF NOT EXISTS incidents (
+  id           text PRIMARY KEY,
+  code         text UNIQUE NOT NULL,
+  tool_id      text NOT NULL REFERENCES tools(id),
+  window_start timestamptz NOT NULL,
+  window_end   timestamptz NOT NULL,
+  reason       text NOT NULL,
+  status       text NOT NULL DEFAULT 'OPEN',
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+
+-- 窗口修订历史（证据链）
+CREATE TABLE IF NOT EXISTS incident_revisions (
+  id           text PRIMARY KEY,
+  incident_id  text NOT NULL REFERENCES incidents(id),
+  window_start timestamptz NOT NULL,
+  window_end   timestamptz NOT NULL,
+  reason       text NOT NULL,
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+
+-- 样品影响评估：CONFIRMED（确认污染）/ SUSPECTED（疑似暴露）/ CLEARED（已排除）
+-- manual=true 表示人工裁定，自动重算不覆盖；basis 为依据，排除也必须留依据
+CREATE TABLE IF NOT EXISTS sample_impacts (
+  incident_id text NOT NULL REFERENCES incidents(id),
+  sample_id   text NOT NULL REFERENCES samples(id),
+  status      text NOT NULL CHECK (status IN ('CONFIRMED','SUSPECTED','CLEARED')),
+  basis       text NOT NULL,
+  manual      boolean NOT NULL DEFAULT false,
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (incident_id, sample_id)
+);
+
+-- 影响状态变迁审计（解除疑似也留痕）
+CREATE TABLE IF NOT EXISTS impact_events (
+  id          text PRIMARY KEY,
+  incident_id text NOT NULL,
+  sample_id   text NOT NULL,
+  from_status text,
+  to_status   text NOT NULL,
+  basis       text NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- 各检测项目的最小取样量
+CREATE TABLE IF NOT EXISTS analyte_requirements (
+  analyte    text PRIMARY KEY,
+  min_mass_g numeric(24,6) NOT NULL
+);
+
+-- 复测方案：DRAFT → CONFIRMED（预占成功）/ CANCELLED
+CREATE TABLE IF NOT EXISTS retest_plans (
+  id          text PRIMARY KEY,
+  incident_id text NOT NULL REFERENCES incidents(id),
+  code        text UNIQUE NOT NULL,
+  status      text NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','CONFIRMED','CANCELLED')),
+  notes       jsonb NOT NULL DEFAULT '[]',
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  confirmed_at timestamptz
+);
+
+-- 方案条目：按（原样, 检测项目）去重，避免重复消耗
+CREATE TABLE IF NOT EXISTS retest_plan_items (
+  id              text PRIMARY KEY,
+  plan_id         text NOT NULL REFERENCES retest_plans(id),
+  sample_id       text NOT NULL REFERENCES samples(id),
+  analyte         text NOT NULL,
+  required_mass_g numeric(24,6) NOT NULL,
+  feasible        boolean NOT NULL DEFAULT true,
+  reason          text,        -- 不可行/不可判定原因
+  status          text NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','RESERVED','DONE','RELEASED','INFEASIBLE')),
+  test_record_id  text
+);
+
+-- 余量预占：确认方案时原子扣减；取消释放；出结果消耗
+CREATE TABLE IF NOT EXISTS reservations (
+  id           text PRIMARY KEY,
+  plan_item_id text NOT NULL REFERENCES retest_plan_items(id),
+  sample_id    text NOT NULL REFERENCES samples(id),
+  mass_g       numeric(24,6) NOT NULL,
+  status       text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','CONSUMED','RELEASED')),
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+
+-- 检测记录修订：新结果关联旧报告（amends_id），旧记录置 SUPERSEDED 但保留
+ALTER TABLE test_records ADD COLUMN IF NOT EXISTS amends_id text REFERENCES test_records(id);
+ALTER TABLE test_records ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'ACTIVE'
+  CHECK (status IN ('ACTIVE','SUPERSEDED'));

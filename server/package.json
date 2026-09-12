@@ -5,7 +5,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
-    "demo": "node dist/scripts/demo.js"
+    "demo": "node dist/scripts/demo.js",
+    "demo:incident": "node dist/scripts/demo-incident.js"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
