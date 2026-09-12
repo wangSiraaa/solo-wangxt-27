@@ -196,16 +196,22 @@ async function run(fn, okText) {
 }
 async function refresh() {
   samples.value = await api.get('/samples');
-  if (selectedId.value) await select(selectedId.value);
+  // 只静默重载详情，保留 doSummary/doReconcile 写入的 summary/reconcile
+  if (selectedId.value) await reloadDetails();
+}
+async function reloadDetails() {
+  [weighings.value, tests.value, lineage.value] = await Promise.all([
+    api.get(`/weighings/sample/${selectedId.value}`),
+    api.get(`/samples/${selectedId.value}/tests`),
+    api.get(`/samples/${selectedId.value}/lineage`),
+  ]);
 }
 async function select(id) {
   selectedId.value = id;
-  [weighings.value, tests.value, lineage.value] = await Promise.all([
-    api.get(`/weighings/sample/${id}`),
-    api.get(`/samples/${id}/tests`),
-    api.get(`/samples/${id}/lineage`),
-  ]);
-  summary.value = null; reconcile.value = null;
+  // 只有用户主动切换样品时才清空上一样品的结果
+  summary.value = null;
+  reconcile.value = null;
+  await reloadDetails();
 }
 
 const doIntake = () => run(async () => {
